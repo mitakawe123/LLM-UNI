@@ -8,3 +8,4 @@ pypdf
 tiktoken
 streamlit
 chromadb
+faiss-cpu
