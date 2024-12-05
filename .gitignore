@@ -1,0 +1,46 @@
+# Python bytecode files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+env/
+*.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Streamlit cache
+.streamlit/
+
+# PyCharm files
+.idea/
+
+# VS Code files
+.vscode/
+
+# Local config files
+*.local
+*.log
+
+# Model checkpoints
+*.bin
+*.json
+*.pt
+*.h5
+
+# Ignore data directory where PDFs might be stored
+data/
+
+# Ignore environment variable files
+.env
+
+# Ignore coverage reports
+*.coverage
+*.coverage.*
+*.lcov
+
+# Ignore mypy, pyright, and pylint files
+.mypy_cache/
+.pyright/
+.pylint.d/
