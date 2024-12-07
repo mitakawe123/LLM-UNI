@@ -1,7 +1,6 @@
 import streamlit as st 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.chains.summarize import load_summarize_chain
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 from transformers import pipeline
 import torch
@@ -20,26 +19,20 @@ def file_preprocessing(file):
     loader = PyPDFLoader(file)
     pages = loader.load_and_split()
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)
-    texts = text_splitter.split_documents(pages)
-    final_texts = ""
-    for text in texts:
-        print(text)
-        final_texts += text.page_content
-    return final_texts
+    split_texts = [text_splitter.split_text(page.page_content) for page in pages]
+    return split_texts, pages
 
-# LLM pipeline
-def llm_pipeline(filepath):
+# Summarization for a single page
+def summarize_text(text, max_length=500, min_length=50):
     pipe_sum = pipeline(
         'summarization',
         model=base_model,
         tokenizer=tokenizer,
-        max_length=500,
-        min_length=50
+        max_length=max_length,
+        min_length=min_length
     )
-    input_text = file_preprocessing(filepath)
-    result = pipe_sum(input_text)
-    result = result[0]['summary_text']
-    return result
+    result = pipe_sum(text)
+    return result[0]['summary_text']
 
 @st.cache_data
 # Function to display the PDF of a given file
@@ -50,15 +43,13 @@ def displayPDF(file):
 
     # Embedding PDF in HTML
     pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
-
-    # Displaying File
     st.markdown(pdf_display, unsafe_allow_html=True)
 
 # Streamlit code
 st.set_page_config(layout="wide")
 
 def main():
-    st.title("Document Summarization App")
+    st.title("Document Summarization App (Multi-Page Support)")
 
     uploaded_file = st.file_uploader("Upload your PDF file", type=['pdf'])
 
@@ -71,6 +62,16 @@ def main():
         with open(filepath, "wb") as temp_file:
             temp_file.write(uploaded_file.read())
         
+        split_texts, pages = file_preprocessing(filepath)
+        
+        st.info(f"Uploaded file contains {len(pages)} pages.")
+        summary_mode = st.radio("Select Summary Mode", ["Page-wise Summarization", "Entire Document Summarization"])
+        
+        # Detail level options
+        detail_level = st.radio("Select Detail Level", ["Brief", "Detailed"])
+        max_length = 300 if detail_level == "Brief" else 500
+        min_length = 30 if detail_level == "Brief" else 50
+
         if st.button("Summarize"):
             col1, col2 = st.columns(2)
             
@@ -79,10 +80,18 @@ def main():
                 displayPDF(filepath)
 
             with col2:
-                st.info("Summarizing... Please wait.")
-                summary = llm_pipeline(filepath)
-                st.success("Summarization Complete")
-                st.text_area("Summary", value=summary, height=300)
+                if summary_mode == "Page-wise Summarization":
+                    st.info("Page-wise Summaries")
+                    for idx, page_texts in enumerate(split_texts):
+                        st.subheader(f"Page {idx + 1}")
+                        page_summary = summarize_text(" ".join(page_texts), max_length=max_length, min_length=min_length)
+                        st.text_area(f"Summary for Page {idx + 1}", value=page_summary, height=150, key=f"page_{idx+1}_summary")
+                elif summary_mode == "Entire Document Summarization":
+                    st.info("Summarizing Entire Document... Please wait.")
+                    combined_text = " ".join([" ".join(page_texts) for page_texts in split_texts])
+                    document_summary = summarize_text(combined_text, max_length=max_length, min_length=min_length)
+                    st.success("Summarization Complete")
+                    st.text_area("Document Summary", value=document_summary, height=300)
 
 if __name__ == "__main__":
     main()
